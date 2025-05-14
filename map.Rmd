@@ -1,0 +1,169 @@
+---
+title: "Innovation Network Analysis"
+author: "Zsolt Tibor KOSZTYAN"
+output:
+  html_document:
+    highlight: haddock
+    theme: lumen
+    toc: yes
+    number_sections: true
+    toc_float:
+      collapsed: no
+  html_notebook:
+    fig_caption: yes
+    highlight: haddock
+    theme: lumen
+    toc: yes
+    number_sections: true
+    toc_float:
+      collapsed: no
+  pdf_document:
+    keep_tex: yes
+    latex_engine: lualatex
+    toc: yes
+    number_sections: true
+  word_document:
+    toc: yes
+---
+
+
+
+```{r,warning=FALSE,message=FALSE}
+library(assertthat)
+library(dplyr)
+library(purrr)
+library(igraph)
+library(giscoR)
+library(ggraph)
+library(ggplot2)
+library(ggmap)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(maps)
+library(sf)
+library(leidenAlg)
+library(ggforce)
+library(network)
+library(intergraph)
+library(geodist)
+```
+# Load necessary data
+```{r,warning=FALSE,message=FALSE}
+load("res_updated.RData")
+```
+
+# Calculate distance deterrence
+
+```{r,warning=FALSE,message=FALSE}
+edgelist<-as.data.frame(get.edgelist(g))
+x<-cbind(V(g)[edgelist[,1]]$Lat,V(g)[edgelist[,1]]$Lon)
+colnames(x)<-c("lat","lon")
+y<-cbind(V(g)[edgelist[,2]]$Lat,V(g)[edgelist[,2]]$Lon)
+colnames(y)<-c("lat","lon")
+edgelist$distance<-geodist(x,y,measure = "geodesic",paired = TRUE)/1000
+```
+
+# Plot distance deterrence
+
+```{r,warning=FALSE,message=FALSE}
+fd<-hist(edgelist$distance,nclass=100,plot=FALSE)
+plot(fd$mids,fd$counts,pch=4,col="red",xlab="km",ylab="f(d_ij)",main="Distance deterrence")
+lines(spline(fd$mids,fd$counts, n = 10), col = 1)
+f<-splinefun(fd$mids,fd$density)
+edgelist$fdij<-f(edgelist$distance)
+```
+
+# Calculate Newmann-Girvan's null model
+
+```{r,warning=FALSE,message=FALSE}
+Amat<-as.matrix(get.adjacency(g))
+kin<-colSums(Amat)
+kout<-rowSums(Amat)
+l=sum(Amat)
+Pmat<-(kout %*% t(kin))/l
+sum(abs(Amat-Pmat))/l
+#PNG<-graph_from_adjacency_matrix(Pmat,mode="directed",weighted = NULL)
+```
+
+# Calculate link-predicted null model
+
+```{r,warning=FALSE,message=FALSE}
+Plink<-as.matrix(get.adjacency(p))
+kin<-colSums(Plink)
+kout<-rowSums(Plink)
+l=sum(Plink)
+#Pmat<-(kout %*% t(kin))/l
+sum(abs(Amat-Plink))/l
+```
+
+
+# Create difference graph
+
+```{r,warning=FALSE,message=FALSE}
+V(p)$id<-V(p)$name
+V(g)$id<-V(p)$name
+V(p)$name<-reIDs[unique(nodes$BvD_Id),]
+G <- g %m% p
+V(G)$name<-reIDs[unique(nodes$BvD_Id),]
+isolated_vertices <- which(igraph::degree(G) == 0)
+G <- igraph::delete.vertices(G, isolated_vertices)
+```
+
+# Calculate graph properties
+
+```{r}
+members<-as.numeric(leiden.community(G)$membership)
+colbar <- rainbow(max(members)+1)
+V(G)$color <- colbar[members]
+#plot(G,layout=cbind(V(G)$Lon,V(G)$Lat),vertex.size=centr_eigen(G)$vector*10+2,vertex.label=NA,edge.arrow.size=0.2,edge.width=0.4)
+```
+
+# Create nodes ande edges dataframes
+
+```{r}
+nodes<-data.frame(V(G)$id,V(G)$Lat,V(G)$Lon,V(G)$name)
+colnames(nodes)<-c("id","lat","lon","name")
+```
+
+```{r}
+edges<-get.edgelist(G)
+colnames(edges)<-c("from","to")
+edges[,"from"]<-IDs[edges[,"from"],]
+edges[,"to"]<-IDs[edges[,"to"],]
+nodes$weight = degree(G)
+```
+
+
+```{r}
+GGRAPH<-ggraph(G, layout=cbind(V(G)$Lon,V(G)$Lat)) +
+    geom_edge_fan(color="gray50", width=0.1, alpha=0.5) +
+    geom_edge_link(width=0.2,alpha = 0.8, color = "gray50",arrow = arrow(length = unit(5, 'mm'))) +
+    geom_node_point(color=V(G)$color, size=centr_eigen(G)$vector*10+2) 
+```
+
+```{r}
+V(G)$size<-log(log(igraph::degree(G))+1)+1
+N<-asNetwork(G)
+
+maps::map('world',regions = ".",fill=TRUE,col='#f2f2f2',lwd=0.8,xlim = c(-26, 39.0), ylim = c(26, 71))
+plot.network(N,# pass in the network
+             # don't erase the map before drawing the network
+             new=FALSE, 
+             # get coordiantes from vertices and pass in as 2-col matrix
+             coord=cbind(N%v%'Lon',N%v%'Lat'),  
+             # ---- all the rest of these are optional to make it look nice ------
+             # set a semi-transparent edge color
+             edge.col='#B0DAFF',
+             # specifiy an edge width scaled as fraction of total co-occurence
+             edge.lwd=0.01,
+             edge.curve=TRUE,
+             # set the vertex size
+             vertex.cex=N%v%'size',
+             # set a semi transparent vertex color
+             vertex.col=N%v%'color',
+             vertex.lwd=0.3,
+             vertex.border='#444444',
+             # please don't jitter the points around
+             jitter=TRUE)
+maps::map('world',regions = ".",fill=FALSE,interior = TRUE,lwd=0.8,boundary=TRUE,xlim = c(-26, 39.0), ylim = c(26, 71),add = TRUE)
+```
