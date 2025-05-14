@@ -1,0 +1,177 @@
+---
+title: "Network Analyis on Multilayer Innovation Networks"
+author: "Zsolt T. Kosztyan, Tunde Kiraly"
+output:
+  html_document:
+    fig_caption: yes
+    fig_height: 8
+    fig_width: 11
+    highlight: haddock
+    theme: lumen
+    toc: yes
+    toc_float:
+      collapsed: no
+  html_notebook:
+    fig_caption: yes
+    highlight: haddock
+    theme: lumen
+    toc: yes
+    toc_float:
+      collapsed: no
+  word_document:
+    toc: yes
+  pdf_document:
+    keep_tex: yes
+    latex_engine: lualatex
+    toc: yes
+---
+
+
+# Load necessary libraries
+
+```{r,warning=FALSE,message=FALSE}
+library(igraph)
+library(readxl)
+library(brainGraph)
+library(visNetwork)
+library(multinet)
+library(muxViz)
+library(RColorBrewer)
+```
+
+```{r, setup}
+library(rgl)
+knitr::knit_hooks$set(webgl = hook_webgl)
+```
+
+
+# Load data
+
+```{r,warning=FALSE,message=FALSE}
+nodes<-read_excel("multinet.xlsx")
+u_nodes<-nodes[!duplicated(nodes[,1]),]
+colnames(u_nodes)<-c("Name","bvdid","label","lat","lon")
+edges_TIP<-read_excel("multinet.xlsx",sheet =2,range="C1:D483")
+colnames(edges_TIP)<-c("from","to")
+g_TIP <- graph_from_data_frame(edges_TIP, directed = TRUE, vertices = u_nodes)
+V(g_TIP)$color<-cluster_leiden(as.undirected(g_TIP),objective_function = "modularity")$membership
+V(g_TIP)$size<-(centr_eigen(g_TIP)$vector+0.2)*40
+edges_DUAL<-read_excel("multinet.xlsx",sheet = 3,range="C1:D576")
+colnames(edges_DUAL)<-c("from","to")
+g_DUAL <- graph_from_data_frame(edges_DUAL, directed = TRUE, vertices = u_nodes)
+V(g_DUAL)$color<-cluster_leiden(as.undirected(g_DUAL),objective_function = "modularity")$membership
+V(g_DUAL)$size<-(centr_eigen(g_DUAL)$vector+0.2)*40
+edges_SZAKGYAK<-read_excel("multinet.xlsx",sheet =4,range="C1:D799")
+colnames(edges_SZAKGYAK)<-c("from","to")
+g_SZAKGYAK <- graph_from_data_frame(edges_SZAKGYAK, directed = TRUE, vertices = u_nodes)
+V(g_SZAKGYAK)$color<-cluster_leiden(as.undirected(g_SZAKGYAK),objective_function = "modularity")$membership
+V(g_SZAKGYAK)$size<-(centr_eigen(g_SZAKGYAK)$vector+0.2)*40
+egoid <- c("3")
+ego_TIP <- graph_from_edgelist(
+  do.call(
+    rbind,
+    lapply(
+      egoid,
+      function(x) {
+        cbind(
+          x,
+          subset(names(V(g_TIP)), distances(g_TIP, v = x, mode = "out") == 1)
+        )
+      }
+    )
+  )
+)
+
+ego_DUAL <- graph_from_edgelist(
+  do.call(
+    rbind,
+    lapply(
+      egoid,
+      function(x) {
+        cbind(
+          x,
+          subset(names(V(g_DUAL)), distances(g_DUAL, v = x, mode = "out") == 1)
+        )
+      }
+    )
+  )
+)
+```
+
+# Calculate similarity measures
+
+## Convert graphs to multinet
+```{r,warning=FALSE,message=FALSE}
+net <- multinet::ml_empty()
+add_igraph_layer_ml(net, g_TIP, "TIP")
+add_igraph_layer_ml(net, g_DUAL, "DUAL")
+add_igraph_layer_ml(net, g_SZAKGYAK, "SZAKGYAK")
+
+add_attributes_ml(net,V(g_TIP)$lat,type="numeric",target="vertex",layer="TIP")
+add_attributes_ml(net,V(g_DUAL)$lat,type="numeric",target="vertex",layer="DUAL")
+add_attributes_ml(net,V(g_SZAKGYAK)$lat,type="numeric",target="vertex",layer="SZAKGYAK")
+
+#add_attributes_ml(net,V(g_TIP)$lon,type="numeric",target="vertex",layer="TIP")
+#add_attributes_ml(net,V(g_DUAL)$lon,type="numeric",target="vertex",layer="DUAL")
+#add_attributes_ml(net,V(g_SZAKGYAK)$lon,type="numeric",target="vertex",layer="SZAKGYAK")
+
+#l<-layout_multiforce_ml(net)
+
+net_ego <- multinet::ml_empty()
+add_igraph_layer_ml(net_ego, ego_TIP, "TIP")
+add_igraph_layer_ml(net_ego, ego_DUAL, "DUAL")
+add_igraph_layer_ml(net_ego, g_SZAKGYAK, "SZAKGYAK")
+```
+
+## Summary of statistics for edges
+
+### Jaccard similarity
+```{r,warning=FALSE,message=FALSE}
+layer_comparison_ml(net,method="jaccard.edges")
+```
+
+### Jaccard similarity for PANNON
+```{r,warning=FALSE,message=FALSE}
+layer_comparison_ml(net_ego,method="jaccard.edges")
+```
+
+
+# Use MuxViz
+
+```{r}
+L <- 3
+g_list<-list()
+g_list[[1]]<-g_TIP
+g_list[[2]]<-g_DUAL
+g_list[[3]]<-g_SZAKGYAK
+color_list<-list()
+#pal<-heat.colors(max(V(g_TIP)$color))
+color_list[[1]]<-1
+color_list[[2]]<-2
+color_list[[3]]<-3
+node_tensor<-list()
+N<-nrow(u_nodes)
+for (l in 1:L) {
+    node_tensor[[l]] <- as_adjacency_matrix(g_list[[l]])
+}
+layer_tensor <- diagR(c(1, 1), 3, 1) + diagR(c(1, 1), 3, -1)
+M <- BuildSupraAdjacencyMatrixFromEdgeColoredMatrices(node_tensor, layer_tensor, L, N)
+A<-GetAggregateMatrix(node_tensor,L,N) # Which partners are in more than one networks
+Tmtx<-BuildSupraTransitionMatrixFromSupraAdjacencyMatrix(M,L,N)
+GetAverageGlobalOverlapping(M,L,N)
+```
+
+
+```{r}
+# PageRank
+# pr <- GetMultiPageRankCentrality(M, L, N) # Very slow
+# Degree versatility
+deg <- GetMultiDegree(M, L, N, isDirected = T)
+head(BuildExtendedEdgelistFromSupraAdjacencyMatrix(M,L,N,isDirected = TRUE))
+
+```
+
+```{r,webgl=TRUE,warning=FALSE,message=FALSE}
+#plot_multiplex3D(g_list,color_list,node.size.values = log(deg),node.colors = V(g_DUAL)$color)
+plot_multiplex3D(g_list,color_list,layer.labels = NA)
+```

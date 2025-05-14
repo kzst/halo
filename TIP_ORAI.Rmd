@@ -1,0 +1,120 @@
+---
+title: "Területi Innovációs Platform hálózatalapú vizsgálata"
+author: "Kosztyán Zsolt Tibor, Király Tünde"
+output:
+  html_document:
+    fig_caption: yes
+    fig_height: 8
+    fig_width: 11
+    highlight: haddock
+    theme: lumen
+    toc: yes
+    toc_float:
+      collapsed: no
+  html_notebook:
+    fig_caption: yes
+    highlight: haddock
+    theme: lumen
+    toc: yes
+    toc_float:
+      collapsed: no
+  word_document:
+    toc: yes
+  pdf_document:
+    keep_tex: yes
+    latex_engine: lualatex
+    toc: yes
+---
+
+
+# Szükséges függvénykönyvtárak beolvasása
+
+```{r,warning=FALSE,message=FALSE}
+library(igraph) # Gráfelemzések
+library(readxl) # Excel állományok beolvasása
+library(visNetwork) # Gárfok interaktív vizualizálása
+library(DT) # Dinamikus adattábla
+library(leidenAlg)
+```
+
+# Adatok beolvasása
+
+```{r,warning=FALSE,message=FALSE}
+NODES<-read_excel("TIP_tagok_from-to.xlsx",sheet="szótár")
+EDGES<-read_excel("TIP_tagok_from-to.xlsx",sheet = "from_to",range = "C1:D485")
+```
+
+# Adatok gráfokká konvertálása (irányított gráfként)
+
+```{r,warning=FALSE,message=FALSE}
+g<-graph_from_data_frame(EDGES,directed = TRUE,vertices = NODES)
+#V(g)$BvDID
+#V(g)$Name
+V(g)$color<-as.numeric(leiden.community(g)$membership)
+V(g)$size<- (centr_eigen(g)$vector+0.2)*20
+```
+
+
+# Megjelenítés
+
+```{r,warning=FALSE,message=FALSE}
+plot(g,layout=layout.davidson.harel(g),vertex.label="")
+#plot(g,layout=layout.davidson.harel(g),vertex.label=V(g)$Name,vertex.label.cex=0.2)
+#plot(g,layout=layout_as_tree,vertex.label=V(g)$Name,vertex.label.cex=0.2)
+```
+
+# Megjelenítés (fa elrendezés)
+
+```{r,warning=FALSE,message=FALSE}
+plot(g,layout=layout_as_tree,vertex.label=V(g)$Name,vertex.label.cex=0.2)
+```
+
+# Adatok gráfokká konvertálása (irányítatlan gráfként)
+
+```{r,warning=FALSE,message=FALSE}
+g<-graph_from_data_frame(EDGES,directed = FALSE,vertices = NODES)
+#V(g)$BvDID
+#V(g)$Name
+V(g)$color<-as.numeric(leiden.community(g)$membership)
+V(g)$size<- (centr_eigen(g)$vector+0.2)*20
+```
+
+# Elemzések
+
+## Hálózati mutatók
+```{r}
+#Fokszám centralizáció
+cat(paste("\nFokszám centralizáció:",round(centr_degree(g)$centralization,4)))
+
+#Köztességi centralizáció
+cat(paste("\nKöztességi centralizáció:",round(centr_betw(g)$centralization,4)))
+
+#Sajátvektor centralizáció
+cat(paste("\nSajátvektor centralizáció:",round(centralization.evcent(g)$centralization,4)))
+#Modularitás
+cat(paste("\nModularitás:",round(modularity(g,leiden.community(g)$membership),4)))
+```
+
+Értékelés: ...
+
+
+# Csomóponti mutatók megjelenítése
+
+```{r}
+xp<-as.data.frame(cbind(NODES$Name,centr_degree(g,mode = "in")$res,centr_degree(g,mode = "out")$res,centr_degree(g,mode = "all")$res,centr_betw(g)$res,centr_clo(g)$res,harmonic_centrality(g),centr_eigen(g)$vector,authority_score(g)$vector,hub_score(g)$vector,page.rank(g)$vector))
+colnames(xp)<-c("Név","DCI","DCO","DC","BC","CC","HC","EC","AUT","HBS","PRC")
+datatable(xp,caption="Hálózati mutatók")
+```
+
+
+Értékelés...
+
+# Interaktív megjelenítés
+
+```{r}
+DATA<-toVisNetworkData(g)
+DATA$nodes$label<-NODES$Name
+visNetwork(nodes = DATA$nodes, edges = DATA$edges,layout=layout, width = "100%", height = 1400)  %>%  visOptions(nodesIdSelection = TRUE,selectedBy = "Name") #%>% visEdges(arrows = 'to')
+```
+
+
