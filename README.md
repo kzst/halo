@@ -20,6 +20,8 @@ Kosztyán, Zs. T., Banász Zs., Csányi V.V., Neumanné-Virág I., & Telcs A. (2
 
 Kosztyán, Zs. T., Király, F., & Kurbucz, M. T. (2022). Analysis of ownership network of European companies using gravity models. Applied Network Science, 7(1), 61. (https://link.springer.com/article/10.1007/s41109-022-00501-y)
 
+Kosztyán, Zs. T., Király, F., Katona, A. I., Csizmadia, T., & Fehérvölgyi, B. (2024). Analysis and prediction of the Horizon 2020 R&D&I collaboration network. Expert Systems with Applications, 255, 124417. (https://www.sciencedirect.com/science/article/pii/S0957417424012831)
+
 ## 3. Dinamikus és többrétegű hálózatok
 
 ### Magyar nyelven
