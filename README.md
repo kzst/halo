@@ -1,3 +1,24 @@
+# Hasznos linkek
+
+## Hálózatok megjelenítése
+
+**visNetwork**: https://cran.r-project.org/web/packages/visNetwork/vignettes/Introduction-to-visNetwork.html
+**Igraph**: https://kateto.net/netscix2016.html 
+**Graph visualization**: https://kateto.net/network-visualization 
+
+
+## Dinamikus hálózatok
+
+**networkDynamic**: https://statnet.org/workshop-ndtv/ndtv_workshop.html 
+**tsna**: https://cran.r-project.org/web/packages/tsna/vignettes/tsna_vignette.html 
+**ndtv**: https://statnet.org/nme/d3-s8-ndtv.html
+
+## Többrétegű hálózatok
+
+**multinet**: https://uuinfolab.github.io/assets/papers/21jss.pdf 
+**muxViz**: https://github.com/wjj0301/Multiplex-Networks
+
+
 # Kapcsolódó tanulmányok
 
 ## 1. Hálózati mutatók értelmezése
