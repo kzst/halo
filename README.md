@@ -18,7 +18,7 @@ Kosztyán, Zs. T., Banász Zs., Csányi V.V., Neumanné-Virág I., & Telcs A. (2
 
 ### Angol nyelven
 
-Kosztyán, Z. T., Király, F., & Kurbucz, M. T. (2022). Analysis of ownership network of European companies using gravity models. Applied Network Science, 7(1), 61. (https://link.springer.com/article/10.1007/s41109-022-00501-y)
+Kosztyán, Zs. T., Király, F., & Kurbucz, M. T. (2022). Analysis of ownership network of European companies using gravity models. Applied Network Science, 7(1), 61. (https://link.springer.com/article/10.1007/s41109-022-00501-y)
 
 ## 3. Dinamikus és többrétegű hálózatok
 
